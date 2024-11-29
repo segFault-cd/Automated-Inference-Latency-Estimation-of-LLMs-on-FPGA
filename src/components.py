@@ -108,19 +108,44 @@ class c_Register(c_Component):
     def __str__(self):
         return "Level0: Register"
     
+class c_Sqrt(c_Component):
+    def __init__(self, x_lut, x_dsp, x_latency=0):
+        super(c_Sqrt, self).__init__()
+        self.resource = c_Resource(x_lut, x_dsp)
+        self.latency = x_latency
+
+    def getResource(self):
+        return [self.resource.lut, self.resource.dsp]
+    
+    def getLatency(self):
+        return self.latency
+    
+    def __str__(self):
+        return "Level0: Sqrt"
+    
 
 """Level1 Classes"""
 
 class c_AdderTree(c_Component):
     def __init__(self, x_height, x_adder):
-        assert math.log2(x_height).is_integer(), "The height of the tree is not a power of 2"
+        assert (x_height).is_integer(), "The height of the tree is not an integer"
         super(c_AdderTree, self).__init__()
         self.height = x_height
-        l_depth = math.log2(self.height)
-        l_numAdders = x_height - 1
+        l_numAdders, self.depth = self.getNumAdders(self.height)
         self.resource = c_Resource(l_numAdders * x_adder.getResource()[0], l_numAdders * x_adder.getResource()[1])
 
-        self.latency = (self.height+1)*x_adder.getLatency()
+        self.latency = self.depth * x_adder.getLatency()
+
+    def getNumAdders(self, x_height):
+        l_height = x_height
+        l_numAdders = 0
+        l_depth = 0
+        while l_height > 1:
+            l_numAdders += int(l_height/2)
+            l_height = math.ceil(l_height/2)
+            l_depth += 1
+
+        return l_numAdders, l_depth
 
     def getResource(self):
         return [self.resource.lut, self.resource.dsp]
@@ -156,7 +181,7 @@ class c_Buffer(c_Component):
     
 class c_AdderArray(c_Component):
     def __init__(self, x_width, x_adder):
-        super(c_Buffer, self).__init__()
+        super(c_AdderArray, self).__init__()
         self.width = x_width
         self.resource = c_Resource(self.width * x_adder.getResource()[0], self.width * x_adder.getResource()[1])
         self.latency = x_adder.getLatency()
@@ -175,7 +200,7 @@ class c_AdderArray(c_Component):
     
 class c_MultiplierArray(c_Component):
     def __init__(self, x_width, x_multiplier):
-        super(c_Buffer, self).__init__()
+        super(c_MultiplierArray, self).__init__()
         self.width = x_width
         self.resource = c_Resource(self.width * x_multiplier.getResource()[0], self.width * x_multiplier.getResource()[1])
         self.latency = x_multiplier.getLatency()
@@ -194,7 +219,7 @@ class c_MultiplierArray(c_Component):
     
 class c_DividerArray(c_Component):
     def __init__(self, x_width, x_divider):
-        super(c_Buffer, self).__init__()
+        super(c_DividerArray, self).__init__()
         self.width = x_width
         self.resource = c_Resource(self.width * x_divider.getResource()[0], self.width * x_divider.getResource()[1])
         self.latency = x_divider.getLatency()
@@ -211,11 +236,30 @@ class c_DividerArray(c_Component):
     def __str__(self):
         return "Level1: DividerArray"
     
+class c_SubtractorArray(c_Component):
+    def __init__(self, x_width, x_adder):
+        super(c_SubtractorArray, self).__init__()
+        self.width = x_width
+        self.resource = c_Resource(self.width * x_adder.getResource()[0], self.width * x_adder.getResource()[1])
+        self.latency = x_adder.getLatency()
+
+    def getResource(self):
+        return [self.resource.lut, self.resource.dsp]
+    
+    def getLatency(self):
+        return self.latency
+    
+    def getWidth(self):
+        return self.width
+    
+    def __str__(self):
+        return "Level1: SubtractorArray"
+    
 """Level2 Classes"""
 
 class c_MAC(c_Component):
     def __init__(self, x_height, x_multiplier, x_adder):
-        assert math.log2(x_height).is_integer(), "The height of the tree is not a power of 2"
+        assert (x_height).is_integer(), "The height of the tree is not an integer"
         super(c_MAC, self).__init__()
         l_adderTree = c_AdderTree(x_height, x_adder)
         l_multResource = [x_height * x_multiplier.getResource[0], x_height * x_multiplier.getResource[1]]
